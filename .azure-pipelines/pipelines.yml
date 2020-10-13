@@ -22,7 +22,7 @@ jobs:
           path: $(Build.StagingDirectory)/repository_cache
         continueOnError: true
 
-      - script: ci/run_envoy_docker.sh 'ci/check_and_fix_format.sh'
+      - script: "false" # ci/run_envoy_docker.sh 'ci/check_and_fix_format.sh'
         workingDirectory: $(Build.SourcesDirectory)
         env:
           ENVOY_DOCKER_BUILD_DIR: $(Build.StagingDirectory)
@@ -48,7 +48,7 @@ jobs:
           path: $(Build.StagingDirectory)/repository_cache
         continueOnError: true
 
-      - script: ci/run_envoy_docker.sh 'ci/do_ci.sh docs'
+      - script: "false" # ci/run_envoy_docker.sh 'ci/do_ci.sh docs'
         workingDirectory: $(Build.SourcesDirectory)
         env:
           ENVOY_DOCKER_BUILD_DIR: $(Build.StagingDirectory)
@@ -132,6 +132,29 @@ jobs:
         workingDirectory: $(Build.SourcesDirectory)
         env:
           AZP_BRANCH: $(Build.SourceBranch)
+
+  - job: api
+    displayName: "data-plane API sync"
+    dependsOn: []
+    steps:
+      - template: bazel.yml
+        parameters:
+          ciTarget: "bazel.api"
+
+      - task: InstallSSHKey@0
+        inputs:
+          hostName: "github.com ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAq2A7hRGmdnm9tUDbO9IDSwBK6TbQa+PXYPCPy6rbTrTtw7PHkccKrpp0yVhp5HdEIcKr6pLlVDBfOLX9QUsyCOV0wzfjIJNlGEYsdlLJizHhbn2mUjvSAHQqZETYP81eFzLQNnPHt4EVVUh7VfDESU84KezmD5QlWpXLmvU31/yMf+Se8xhHTvKSCZIFImWwoG6mbUoWf9nzpIoaSjB+weqqUUmpaaasXVal72J+UX2B+2RPW3RcT0eOzQgqlJL3RKrTJvdsjE3JEAvGq3lGHSZXy28G3skua2SmVi/w4yCE6gbODqnTWlg7+wC604ydGXA8VJiS5ap43JXiUFFAaQ=="
+          sshPublicKey: "$(DataPlaneApiPublicKey)"
+          sshPassphrase: "$(SshDeployKeyPassphrase)"
+          sshKeySecureFile: "$(DataPlaneApiPrivateKey)"
+        condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'), eq(variables['PostSubmit'], true))
+
+      - bash: ci/api_mirror.sh
+        displayName: "Sync data-plane-api"
+        workingDirectory: $(Build.SourcesDirectory)
+        env:
+          AZP_BRANCH: $(Build.SourceBranch)
+        condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'), eq(variables['PostSubmit'], true))
 
   - job: bazel
     displayName: "Linux-x64"
